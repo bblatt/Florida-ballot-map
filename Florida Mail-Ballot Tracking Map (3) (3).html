@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Florida Mail-Ballot Tracking, County by County</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --ink:#0B1B4D;
+    --paper:#F4F6FB;
+    --panel:#FFFFFF;
+    --line:#D5DBEC;
+    --navy:#0021A5;
+    --navy-deep:#0021A5;
+    --citrus:#FA4616;
+    --slate:#5A6590;
+    --slate-dim:#9AA6D0;
+    --water:#DCE3F3;
+    --focus:#FA4616;
+    --c-enh:#FA4616;
+    --c-cus:#FFC72C;
+    --c-base:#0021A5;
+    color-scheme: light;
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --ink:#EAEEFB;
+      --paper:#0E1222;
+      --panel:#171C33;
+      --line:#2A3157;
+      --navy:#8FA6FF;
+      --navy-deep:#0021A5;
+      --slate:#9AA6D0;
+      --slate-dim:#4A5586;
+      --water:#141A33;
+      --c-cus:#FFC72C;
+      --c-base:#5B7BFF;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#EAEEFB;
+    --paper:#0E1222;
+    --panel:#171C33;
+    --line:#2A3157;
+    --navy:#8FA6FF;
+    --navy-deep:#0021A5;
+    --slate:#9AA6D0;
+    --slate-dim:#4A5586;
+    --water:#141A33;
+    --c-cus:#FFC72C;
+    --c-base:#5B7BFF;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+
+  header{
+    background:var(--navy-deep);
+    color:#FFFFFF;
+    padding:28px clamp(16px,4vw,48px) 22px;
+    border-bottom:4px solid var(--citrus);
+  }
+  header h1{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:clamp(1.5rem, 3vw, 2.1rem);
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:0;
+    max-width:62ch;
+    font-size:0.95rem;
+    line-height:1.5;
+    color:#D5DDF7;
+  }
+
+  main{
+    max-width:1280px;
+    margin:0 auto;
+    padding:clamp(16px,3vw,32px);
+    display:grid;
+    grid-template-columns: minmax(0,1.5fr) minmax(280px,1fr);
+    gap:24px;
+  }
+  @media (max-width:860px){
+    main{grid-template-columns:1fr;}
+  }
+
+  .map-card, .panel, .legend-card, .list-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+  }
+
+  .map-card{
+    padding:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .map-toolbar{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .map-toolbar input[type="search"]{
+    flex:1;
+    min-width:160px;
+    padding:8px 12px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:0.9rem;
+  }
+  .map-toolbar input[type="search"]:focus-visible{
+    outline:2px solid var(--focus);
+    outline-offset:1px;
+  }
+  .legend-inline{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    font-size:0.78rem;
+    color:var(--ink);
+  }
+  .legend-inline span{display:inline-flex;align-items:center;gap:5px;}
+  .dot.sq{border-radius:2px;}
+  .dot.dia{border-radius:1px; transform:rotate(45deg) scale(0.82);}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
+
+  svg#flmap{
+    width:100%;
+    height:auto;
+    display:block;
+    background:var(--water);
+    border-radius:3px;
+  }
+  .county-dot{
+    cursor:pointer;
+    stroke:var(--panel);
+    stroke-width:1.2;
+    transition:r 0.12s ease;
+  }
+  .county-dot:hover, .county-dot:focus{
+    stroke:var(--ink);
+    stroke-width:1.5;
+  }
+  .county-dot.t-custom{stroke:#6B4E00;}
+  .county-dot.dimmed{opacity:0.18;}
+  .county-dot.selected{stroke:var(--ink); stroke-width:2.2;}
+  .county-label-tip{
+    pointer-events:none;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    fill:var(--ink);
+  }
+  .fl-outline{
+    fill:var(--paper);
+    stroke:var(--slate-dim);
+    stroke-width:1.4;
+  }
+
+  .tip{
+    display:none;
+    position:absolute;
+    z-index:5;
+    max-width:300px;
+    padding:10px 12px;
+    background:var(--panel);
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-top:3px solid var(--citrus);
+    border-radius:3px;
+    box-shadow:0 6px 18px rgba(0,16,80,0.18);
+    font-size:0.82rem;
+    line-height:1.4;
+  }
+  .tip strong{display:block; font-family:'Source Serif 4', serif; font-size:0.98rem; margin-bottom:5px;}
+  .tip .tier-chip{margin-bottom:6px; font-size:0.72rem;}
+  .tip a{display:block; color:var(--navy); font-weight:600; word-break:break-all;}
+  .tip .tip-seat{display:block; color:var(--slate); font-size:0.74rem; margin:-2px 0 6px;}
+  .tip .tip-note{margin:0 0 8px; line-height:1.45;}
+  .tip .tip-label{display:block; font-weight:500; font-size:0.7rem; color:var(--slate); text-transform:uppercase; letter-spacing:0.03em;}
+  .tip a + a{margin-top:6px;}
+  .tip .tip-hint{display:block; margin-top:8px; padding-top:6px; border-top:1px solid var(--line); font-size:0.7rem; color:var(--slate);}
+  .tip .tip-none{display:block; color:var(--slate);}
+  .method-link{display:inline-flex; align-items:center; gap:6px;}
+  a.method-link{color:var(--navy); font-weight:600; text-decoration:none;}
+  a.method-link:hover{text-decoration:underline;}
+
+  .panel{
+    padding:20px;
+    min-height:220px;
+  }
+  .panel .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--slate);
+    margin:0 0 4px;
+  }
+  .panel h2{
+    font-family:'Source Serif 4', serif;
+    font-size:1.5rem;
+    margin:0 0 10px;
+  }
+  .tier-chip{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:20px;
+    font-size:0.78rem;
+    font-weight:600;
+    margin-bottom:14px;
+  }
+  .tier-enhanced{background:rgba(250,70,22,0.14); color:#B83208;}
+  .tier-custom{background:rgba(255,199,44,0.30); color:#6B4E00;}
+  .tier-baseline{background:rgba(0,33,165,0.12); color:#0021A5;}
+  :root[data-theme="dark"] .tier-enhanced{color:#FF8A66;}
+  :root[data-theme="dark"] .tier-custom{color:#FFD76A;}
+  :root[data-theme="dark"] .tier-baseline{color:#A9B9FF;}
+
+  .panel dl{margin:0 0 14px; font-size:0.92rem; line-height:1.6;}
+  .panel dt{color:var(--slate); font-size:0.78rem; margin-top:10px;}
+  .panel dd{margin:0;}
+  .panel a{color:var(--navy); font-weight:600;}
+  :root[data-theme="dark"] .panel a{color:#A9B9FF;}
+  .panel .empty{color:var(--slate); font-size:0.92rem; line-height:1.6;}
+
+  .legend-card{
+    margin-top:16px;
+    padding:18px 20px;
+    font-size:0.85rem;
+    line-height:1.55;
+  }
+  .legend-card h3{
+    font-family:'Source Serif 4', serif;
+    font-size:1rem;
+    margin:0 0 10px;
+  }
+  .legend-card ul{list-style:none; margin:0; padding:0;}
+  .legend-card li{display:flex; gap:8px; margin-bottom:9px;}
+  .legend-card li .dot{margin-top:5px;}
+
+  .list-card{
+    grid-column:1 / -1;
+    margin-top:4px;
+    padding:18px 20px 22px;
+  }
+  .list-card h3{
+    font-family:'Source Serif 4', serif;
+    font-size:1.1rem;
+    margin:0 0 4px;
+  }
+  .list-card p.note{color:var(--slate); font-size:0.82rem; margin:0 0 14px;}
+  table{width:100%; border-collapse:collapse; font-size:0.86rem;}
+  thead th{
+    text-align:left;
+    font-weight:600;
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--slate);
+    border-bottom:1px solid var(--line);
+    padding:6px 8px;
+  }
+  tbody td{
+    padding:7px 8px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:rgba(250,70,22,0.08);}
+  tbody tr.row-selected{background:rgba(250,70,22,0.14);}
+  .overflow-wrap{overflow-x:auto;}
+
+  footer{
+    max-width:1280px;
+    margin:0 auto;
+    padding:4px clamp(16px,3vw,32px) 40px;
+    color:var(--slate);
+    font-size:0.78rem;
+    line-height:1.6;
+  }
+  footer a{color:var(--slate);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Florida Mail-Ballot Tracking, County by County</h1>
+  <p>Every one of Florida's 67 counties offers some form of online vote-by-mail ballot tracking. The tool behind it varies &mdash; click a county below to see which system it runs and where to use it.</p>
+</header>
+
+<main>
+  <div class="map-card">
+    <div class="map-toolbar">
+      <input type="search" id="searchBox" placeholder="Find a county&hellip;" aria-label="Search counties">
+      <div class="legend-inline">
+        <span><span class="dot" style="background:var(--c-enh)"></span>BallotTrax</span>
+        <span><span class="dot dia" style="background:var(--c-cus)"></span>Custom system</span>
+        <span><span class="dot sq" style="background:var(--c-base)"></span>Florida System</span>
+      </div>
+    </div>
+    <svg id="flmap" viewBox="0 0 900 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Map of Florida counties"></svg>
+    <div id="tip" class="tip" role="tooltip"></div>
+  </div>
+
+  <div class="side-col">
+    <div class="panel" id="panel">
+      <p class="eyebrow">SELECT A COUNTY</p>
+      <h2>No county selected</h2>
+      <p class="empty">Click a dot on the map, or a row in the table below, to see how that county's Supervisor of Elections handles mail-ballot tracking.</p>
+    </div>
+
+    <div class="legend-card">
+      <h3>How to read this</h3>
+      <ul>
+        <li><span class="dot" style="background:var(--c-enh)"></span><span><strong>BallotTrax</strong> &mdash; voters can opt in to email, text, or voice alerts as the ballot is printed, mailed, received, and counted, confirmed by county announcements.</span></li>
+        <li><span class="dot dia" style="background:var(--c-cus)"></span><span><strong>Custom system</strong> (gold diamond) &mdash; the county built its own tracker rather than using BallotTrax.</span></li>
+        <li><span class="dot sq" style="background:var(--c-base)"></span><span><strong>Florida System</strong> &mdash; confirmed to offer Florida's standard status-lookup tool; no enhanced notification service turned up in this research (it may still exist &mdash; worth checking the county site directly).</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="list-card">
+    <h3>All 67 counties</h3>
+    <p class="note">Sourced from Supervisor of Elections press releases, local news coverage, and the Florida Division of Elections' statewide ballot-status directory. Enhanced-tier list reflects named counties found as of this research (BallotTrax reported ~28+ FL counties participating overall, so a few more "Florida System" counties below may since have been upgraded &mdash; verify directly if it matters for your use).</p>
+    <div class="overflow-wrap">
+      <table>
+        <thead>
+          <tr><th>County</th><th>Tracking method</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Statewide fallback for any county: <a href="https://dos.fl.gov/elections/for-voters/check-your-voter-status-and-polling-place/vote-by-mail-ballot-information-and-status-lookup/" target="_blank" rel="noopener">Florida Division of Elections &ndash; Vote-by-Mail Ballot Status Lookup</a>, which links out to every county's own tool. County seat coordinates are approximate and used only to position map markers.
+</footer>
+
+<script>
+const DOS_LINK = "https://dos.fl.gov/elections/for-voters/check-your-voter-status-and-polling-place/vote-by-mail-ballot-information-and-status-lookup/";
+
+// tier: 'enhanced' = confirmed BallotTrax, 'custom' = confirmed in-house system, 'baseline' = confirmed state lookup, unconfirmed beyond that
+const counties = [
+  {n:"Alachua", seat:"Gainesville", lat:29.6516, lon:-82.3248, tier:"enhanced", note:"BallotTrax, branded through the county's VoteAlachua site. Phone 352-374-5252.", link:"https://votealachua.ballottrax.net/", officialLink:"https://www.votealachua.gov/203/Vote-by-Mail"},
+  {n:"Baker", seat:"Macclenny", lat:30.2866, lon:-82.1251, tier:"baseline", link:"https://votebakerfl.gov/vote-by-mail/"},
+  {n:"Bay", seat:"Panama City", lat:30.1588, lon:-85.6602, tier:"baseline", link:"https://www.bayvotesfl.gov/voters/track-my-ballot/"},
+  {n:"Bradford", seat:"Starke", lat:29.9436, lon:-82.1093, tier:"baseline", link:"https://www.votebradfordfl.gov/voter/vote_by_mail.php"},
+  {n:"Brevard", seat:"Titusville", lat:28.6122, lon:-80.8075, tier:"custom", note:"Runs its own \u2018Check My Mail Ballot Status\u2019 tool on VoteBrevard.gov showing when a ballot is requested, mailed and received \u2014 not BallotTrax.", link:"https://www.votebrevard.gov/Ballots-by-Mail/Check-My-Mail-Ballot-Status"},
+  {n:"Broward", seat:"Fort Lauderdale", lat:26.1224, lon:-80.1373, tier:"enhanced", note:"BallotTrax-powered \u2018Ballot Status Notifications,\u2019 run through the county's own site rather than a public ballottrax.net address. Phone 954-357-7050.", link:"https://browardvotes.gov/voters/ballot-status-notifications"},
+  {n:"Calhoun", seat:"Blountstown", lat:30.4452, lon:-85.0488, tier:"baseline", link:"https://calhoun.electionsfl.org/Voters-Info/Track-Your-Vote-by-Mail-Ballot"},
+  {n:"Charlotte", seat:"Punta Gorda", lat:26.9298, lon:-82.0454, tier:"enhanced", note:"BallotTrax email/text alerts when a ballot is mailed, received, or has a signature issue.", link:"https://www.soecharlottecountyfl.gov/1218/Vote-By-Mail"},
+  {n:"Citrus", seat:"Inverness", lat:28.8339, lon:-82.3309, tier:"enhanced", note:"BallotTrax, linked from the county elections site navigation.", link:"https://www.votecitrus.gov/164/Vote-by-Mail"},
+  {n:"Clay", seat:"Green Cove Springs", lat:29.9919, lon:-81.6787, tier:"baseline", link:"https://clayelections.gov/Voter-Information/My-Registration-Status/"},
+  {n:"Collier", seat:"Naples", lat:26.1420, lon:-81.7948, tier:"enhanced", note:"BallotTrax, rolled out 2022 as TrackMyBallot. Phone (239) 252-8683.", link:"https://colliervotes.ballottrax.net/voter/", officialLink:"https://www.colliervotes.gov/QuickLinks.aspx?CID=31"},
+  {n:"Columbia", seat:"Lake City", lat:30.1897, lon:-82.6393, tier:"enhanced", note:"BallotTrax, one of Florida's earliest-adopting counties.", link:"https://votecolumbiafl.ballottrax.net/voter/", officialLink:"https://www.votecolumbiafl.gov/voter_information/vote_by_mail.php"},
+  {n:"DeSoto", seat:"Arcadia", lat:27.2159, lon:-81.8595, tier:"baseline", link:"https://votedesotofl.gov/voter-information/how-to-vote/vote-by-mail/"},
+  {n:"Dixie", seat:"Cross City", lat:29.6358, lon:-83.1265, tier:"baseline", link:"https://dixievotes.gov/voter-resources/voter-status-look-up/"},
+  {n:"Duval", seat:"Jacksonville", lat:30.3322, lon:-81.6557, tier:"custom", note:"Runs its own county-hosted \u2018My Voter Information\u2019 portal on DuvalElections.gov for checking mail-ballot status (no BallotTrax found). Phone 904-255-8683.", link:"https://www.duvalelections.gov/221/Track-Your-Vote-by-Mail-Ballot"},
+  {n:"Escambia", seat:"Pensacola", lat:30.4213, lon:-87.2169, tier:"enhanced", note:"BallotTrax text/email alerts, offered alongside the county's own status form.", link:"https://escambiavotes.ballottrax.net/voter/", officialLink:"https://escambiavotes.gov/track-my-ballot"},
+  {n:"Flagler", seat:"Bunnell", lat:29.4669, lon:-81.2567, tier:"enhanced", note:"BallotTrax, signup via FlaglerElections.gov. Phone (386) 313-4170.", link:"https://www.flaglerelections.gov/trax", officialLink:"https://www.flaglerelections.gov/Elections/How-to-Vote/Vote-By-Mail"},
+  {n:"Franklin", seat:"Apalachicola", lat:29.7260, lon:-84.9913, tier:"enhanced", note:"BallotTrax email, text and voice updates when a ballot is mailed, received or has an issue.", link:"https://votefranklinfl.ballottrax.net/", officialLink:"https://www.votefranklinfl.gov/voter_information/vote_by_mail/index.php"},
+  {n:"Gadsden", seat:"Quincy", lat:30.5869, lon:-84.5858, tier:"baseline", link:"https://votegadsdenfl.gov/voter-info/my-registration-status/"},
+  {n:"Gilchrist", seat:"Trenton", lat:29.6097, lon:-82.8068, tier:"baseline", link:"https://www.votegilchrist.com/information_for_voters/vote_by_mail.php"},
+  {n:"Glades", seat:"Moore Haven", lat:26.8342, lon:-81.0948, tier:"baseline", link:"https://voteglades.gov/voting-info/vote-by-mail/"},
+  {n:"Gulf", seat:"Port St. Joe", lat:29.8138, lon:-85.3021, tier:"baseline", link:"https://www.votegulf.gov/request%20a%20vote%20by%20mail%20ballot/"},
+  {n:"Hamilton", seat:"Jasper", lat:30.5197, lon:-82.9512, tier:"baseline", link:"https://www.hamiltonvotesfl.gov/voters/check-voter-status/"},
+  {n:"Hardee", seat:"Wauchula", lat:27.5361, lon:-81.8109, tier:"baseline", link:"https://hardeeflvotes.gov/voter-information/voter-lookup-sample-ballots/"},
+  {n:"Hendry", seat:"LaBelle", lat:26.7623, lon:-81.4387, tier:"baseline", link:"https://www.hendryelections.gov/voter/vote_by_mail.php"},
+  {n:"Hernando", seat:"Brooksville", lat:28.5547, lon:-82.3879, tier:"enhanced", note:"BallotTrax, opt-in notification service per county newsletter.", link:"https://www.hernandovotes.gov/1229/Vote-by-Mail"},
+  {n:"Highlands", seat:"Sebring", lat:27.4956, lon:-81.4412, tier:"baseline", link:"https://www.votehighlands.gov/request-vote-by-mail"},
+  {n:"Hillsborough", seat:"Tampa", lat:27.9506, lon:-82.4572, tier:"enhanced", note:"BallotTrax notifications (text, email or phone) when a ballot is mailed, received and counted. Phone 813-612-4180.", link:"https://www.votehillsborough.gov/voters/track-your-ballot"},
+  {n:"Holmes", seat:"Bonifay", lat:30.7891, lon:-85.6788, tier:"enhanced", note:"BallotTrax is the county's listed status-lookup tool itself (not just a side option).", link:"https://holmesfl.ballottrax.net/voter/", officialLink:"https://holmeselectionsfl.gov/voter-information/vote-by-mail/"},
+  {n:"Indian River", seat:"Vero Beach", lat:27.6386, lon:-80.3973, tier:"baseline", link:"https://voteindianriver.gov/election_information/vote_by_mail_ballot/track_your_vote_by_mail_ballot.php"},
+  {n:"Jackson", seat:"Marianna", lat:30.7766, lon:-85.2266, tier:"baseline", link:"https://votejacksonfl.gov/check-your-vote-by-mail-ballot-status-or-view-your-sample-ballot/"},
+  {n:"Jefferson", seat:"Monticello", lat:30.5452, lon:-83.8683, tier:"baseline", link:"https://jeffersonvotesfl.gov/track-my-ballot/"},
+  {n:"Lafayette", seat:"Mayo", lat:30.0477, lon:-83.1821, tier:"baseline", link:"https://lafayettevotes.net/am-i-registered/"},
+  {n:"Lake", seat:"Tavares", lat:28.8039, lon:-81.7229, tier:"enhanced", note:"BallotTrax; one of Central Florida's earliest-adopting counties.", link:"https://www.lakevotes.gov/159/Vote-By-Mail"},
+  {n:"Lee", seat:"Fort Myers", lat:26.6406, lon:-81.8723, tier:"enhanced", note:"BallotTrax since the 2024 cycle. Phone (239) 533-8683.", link:"https://www.lee.vote/161/Vote-by-Mail"},
+  {n:"Leon", seat:"Tallahassee", lat:30.4383, lon:-84.2807, tier:"baseline", link:"https://www.leonvotes.gov/Voting/Vote-by-Mail"},
+  {n:"Levy", seat:"Bronson", lat:29.4397, lon:-82.6379, tier:"enhanced", note:"BallotTrax, serving roughly 30,000 registered voters \u2014 it's the county's primary status-lookup link.", link:"https://votelevy.ballottrax.net/voter/", officialLink:"https://www.votelevy.gov/voters/request-a-mail-ballot/"},
+  {n:"Liberty", seat:"Bristol", lat:30.4388, lon:-84.9816, tier:"baseline", link:"https://libertycountyflsoe.gov/voter-information/voter-lookup/"},
+  {n:"Madison", seat:"Madison", lat:30.4624, lon:-83.4122, tier:"baseline", link:"https://www.votemadison.com/check-voter-status/"},
+  {n:"Manatee", seat:"Bradenton", lat:27.4989, lon:-82.5748, tier:"enhanced", note:"BallotTrax, named among the earlier Florida adopters.", link:"https://votemanatee.ballottrax.net", officialLink:"https://www.votemanatee.gov/about-vote-by-mail/"},
+  {n:"Marion", seat:"Ocala", lat:29.1872, lon:-82.1401, tier:"enhanced", note:"BallotTrax, with push notifications at each mailing/return step.", link:"https://www.votemarion.gov/325/Check-Your-Mail-Ballot-Status"},
+  {n:"Martin", seat:"Stuart", lat:27.1973, lon:-80.2528, tier:"baseline", link:"https://www.martinvotes.gov/voter-information/vote-by-mail/?county=MRT"},
+  {n:"Miami-Dade", seat:"Miami", lat:25.7617, lon:-80.1918, tier:"custom", note:"Tracks ballots through the county's own Voter Information tool hosted on miamidade.gov (no BallotTrax found). Phone 305-499-8683.", link:"https://www.miamidade.gov/global/service.page?Mduid_service=ser151187731708822", officialLink:"https://www.miamidade.gov/global/elections/vote-by-mail.page"},
+  {n:"Monroe", seat:"Key West", lat:24.5551, lon:-81.7800, tier:"baseline", link:"https://www.votemonroeflkeys.gov/Voting/Three-Ways-to-Vote/Vote-by-Mail"},
+  {n:"Nassau", seat:"Fernandina Beach", lat:30.6697, lon:-81.4626, tier:"baseline", link:"https://www.votenassaufl.gov/check-my-voter-status"},
+  {n:"Okaloosa", seat:"Crestview", lat:30.7619, lon:-86.5705, tier:"baseline", link:"https://www.voteokaloosa.gov/voters/check-voter-status/"},
+  {n:"Okeechobee", seat:"Okeechobee", lat:27.2417, lon:-80.8296, tier:"baseline", link:"https://voteokeechobee.gov/voter-education/vote-by-mail-request-and-status/"},
+  {n:"Orange", seat:"Orlando", lat:28.5383, lon:-81.3792, tier:"enhanced", note:"BallotTrax, part of Central Florida's shared rollout.", link:"https://www.ocfelections.gov/vote-by-mail?county=FL-ORA"},
+  {n:"Osceola", seat:"Kissimmee", lat:28.2920, lon:-81.4076, tier:"enhanced", note:"BallotTrax; SOE staff report it correlates with fewer signature issues.", link:"https://www.voteosceola.gov/en-us/how-to-vote/vote-by-mail/"},
+  {n:"Palm Beach", seat:"West Palm Beach", lat:26.7153, lon:-80.0534, tier:"enhanced", note:"BallotTrax notification program (SMS, voice or email), plus the county's own My Status page.", link:"https://www.votepalmbeach.gov/173/Track-Your-Vote-by-Mail-Ballot"},
+  {n:"Pasco", seat:"Dade City", lat:28.3669, lon:-82.1859, tier:"enhanced", note:"BallotTrax, linked as \u2018Track Your Vote by Mail Ballot\u2019 on the county site. Phone 800-851-8754.", link:"https://pascovotes.ballottrax.net/voter/", officialLink:"https://pascovotes.gov/elections/vote_by_mail/index.php"},
+  {n:"Pinellas", seat:"Clearwater", lat:27.9659, lon:-82.8001, tier:"baseline", link:"https://www.votepinellas.gov/189/Check-My-Status"},
+  {n:"Polk", seat:"Bartow", lat:27.8989, lon:-81.8431, tier:"custom", note:"Reported in 2022 coverage as using its own ballot-tracking approach rather than BallotTrax.", link:"https://www.polkelections.gov/164/Check-Your-Information"},
+  {n:"Putnam", seat:"Palatka", lat:29.6494, lon:-81.6387, tier:"baseline", link:"https://www.voteputnamflorida.gov/voter_information/my_voter_status.php"},
+  {n:"Santa Rosa", seat:"Milton", lat:30.6324, lon:-87.0505, tier:"baseline", link:"https://votesantarosa.gov/voter-information/how-to-vote/vote-by-mail/"},
+  {n:"Sarasota", seat:"Sarasota", lat:27.3364, lon:-82.5307, tier:"enhanced", note:"BallotTrax, named among the earlier Florida adopters.", link:"https://www.sarasotavotes.gov/161/Vote-by-Mail"},
+  {n:"Seminole", seat:"Sanford", lat:28.8114, lon:-81.2729, tier:"enhanced", note:"BallotTrax, part of Central Florida's shared rollout.", link:"https://www.voteseminole.gov/my-voter-record"},
+  {n:"St. Johns", seat:"St. Augustine", lat:29.8947, lon:-81.3145, tier:"baseline", link:"https://www.votesjc.gov/check-my-status"},
+  {n:"St. Lucie", seat:"Fort Pierce", lat:27.4467, lon:-80.3256, tier:"baseline", link:"https://migration.revize.com/revize/stluciesupervisor/voter_information/voter_status.php"},
+  {n:"Sumter", seat:"Bushnell", lat:28.6633, lon:-82.1115, tier:"custom", note:"Reported in 2022 coverage as using its own ballot-tracking approach rather than BallotTrax.", link:"https://elections.sumtercountyfl.gov/168/Review-My-Registration-Status-Voter-Look"},
+  {n:"Suwannee", seat:"Live Oak", lat:30.2947, lon:-82.9848, tier:"baseline", link:"https://www.suwanneevotes.com/check-voter-status/"},
+  {n:"Taylor", seat:"Perry", lat:30.1047, lon:-83.5826, tier:"enhanced", note:"BallotTrax email/text alerts, announced on the county's elections site.", link:"https://www.taylorelections.com/BallotTrax", officialLink:"https://www.taylorelectionsfl.gov/check-voter-status/"},
+  {n:"Union", seat:"Lake Butler", lat:30.0266, lon:-82.3362, tier:"baseline", link:"https://unionflvotes.com/voters/check-voter-status/"},
+  {n:"Volusia", seat:"DeLand", lat:29.0283, lon:-81.3034, tier:"enhanced", note:"BallotTrax since 2022. Phone 386-736-5930.", link:"https://www.voterfocus.com/VoterInformationLookup/voterSearch?county=VOL"},
+  {n:"Wakulla", seat:"Crawfordville", lat:30.1761, lon:-84.3755, tier:"enhanced", note:"BallotTrax since 2024. Phone (850) 926-7575.", link:"https://wakullavotes.ballottrax.net/voter/", officialLink:"https://wakullavotes.gov/check-my-status/"},
+  {n:"Walton", seat:"DeFuniak Springs", lat:30.7216, lon:-86.1156, tier:"baseline", link:"https://votewalton.gov/my-status-and-info/"},
+  {n:"Washington", seat:"Chipley", lat:30.7824, lon:-85.5452, tier:"baseline", link:"https://wcsoe.gov/registration/"}
+];
+
+const tierMeta = {
+  enhanced:{color:"var(--c-enh)", label:"BallotTrax", cls:"", shape:"circle"},
+  custom:{color:"var(--c-cus)", label:"Custom system", cls:"dia", shape:"diamond"},
+  baseline:{color:"var(--c-base)", label:"Florida System", cls:"sq", shape:"square"}
+};
+
+// simplified Florida outline (lon,lat pairs) for backdrop only
+const outline = [
+  [-87.60,31.00],
+  [-85.00,31.00],
+  [-84.86,30.70],
+  [-83.35,30.64],
+  [-82.20,30.57],
+  [-82.04,30.37],
+  [-81.95,30.58],
+  [-81.70,30.72],
+  [-81.40,30.73],
+  [-81.36,30.40],
+  [-81.25,29.95],
+  [-81.08,29.55],
+  [-80.88,29.10],
+  [-80.65,28.75],
+  [-80.50,28.45],
+  [-80.50,28.10],
+  [-80.38,27.80],
+  [-80.33,27.64],
+  [-80.25,27.45],
+  [-80.17,27.20],
+  [-80.00,26.72],
+  [-80.05,26.12],
+  [-80.10,25.78],
+  [-80.15,25.45],
+  [-80.40,25.25],
+  [-80.80,25.20],
+  [-81.10,25.10],
+  [-81.15,25.30],
+  [-81.40,25.85],
+  [-81.65,26.00],
+  [-81.87,26.14],
+  [-81.90,26.40],
+  [-82.05,26.55],
+  [-82.22,26.75],
+  [-82.40,27.00],
+  [-82.53,27.20],
+  [-82.65,27.40],
+  [-82.74,27.55],
+  [-82.78,27.70],
+  [-82.90,27.97],
+  [-82.90,28.20],
+  [-82.80,28.50],
+  [-82.80,28.85],
+  [-83.05,29.05],
+  [-83.15,29.30],
+  [-83.45,29.65],
+  [-83.80,29.95],
+  [-84.10,30.07],
+  [-84.35,29.95],
+  [-84.60,29.78],
+  [-84.80,29.62],
+  [-84.98,29.58],
+  [-85.20,29.60],
+  [-85.35,29.62],
+  [-85.45,29.80],
+  [-85.40,30.00],
+  [-85.70,30.06],
+  [-85.90,30.20],
+  [-86.20,30.27],
+  [-86.50,30.35],
+  [-86.90,30.32],
+  [-87.15,30.30],
+  [-87.50,30.27],
+  [-87.60,30.30]
+];
+const keysOutline = [
+  [-80.40,25.22],
+  [-80.65,25.02],
+  [-81.00,24.75],
+  [-81.45,24.62],
+  [-81.88,24.50],
+  [-81.88,24.62],
+  [-81.45,24.73],
+  [-81.02,24.86],
+  [-80.70,25.12],
+  [-80.45,25.32]
+];
+
+const LON_MIN=-87.65, LON_MAX=-79.97, LAT_MIN=24.40, LAT_MAX=31.05;
+const W=900, H=680, PAD=24;
+function project(lon,lat){
+  const x = PAD + (lon-LON_MIN)/(LON_MAX-LON_MIN) * (W-2*PAD);
+  const y = (H-PAD) - (lat-LAT_MIN)/(LAT_MAX-LAT_MIN) * (H-2*PAD);
+  return [x,y];
+}
+
+const svg = document.getElementById('flmap');
+const NS = "http://www.w3.org/2000/svg";
+
+// outline path
+function toPath(pts){ const q = pts.map(([lo,la])=>project(lo,la)); return "M " + q.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" L ") + " Z"; }
+const d = toPath(outline);
+const outlinePath = document.createElementNS(NS,"path");
+outlinePath.setAttribute("d",d);
+outlinePath.setAttribute("class","fl-outline");
+svg.appendChild(outlinePath);
+
+const dotsGroup = document.createElementNS(NS,"g");
+svg.appendChild(dotsGroup);
+
+function markerPath(shape, x, y){
+  const r = 7;
+  if(shape==="square"){ const h=r*0.9; return `M${x-h},${y-h}H${x+h}V${y+h}H${x-h}Z`; }
+  if(shape==="diamond"){ const d=r*1.3; return `M${x},${y-d}L${x+d},${y}L${x},${y+d}L${x-d},${y}Z`; }
+  return `M${x-r},${y}a${r},${r} 0 1,0 ${2*r},0a${r},${r} 0 1,0 ${-2*r},0Z`;
+}
+let selected = null;
+
+// nudge markers that would overlap (seats of neighboring counties can be < 1 marker apart)
+const pos = counties.map(c=>project(c.lon,c.lat));
+(function spread(){
+  const MIN = 15;
+  for(let it=0; it<120; it++){
+    let moved = false;
+    for(let a=0;a<pos.length;a++){
+      for(let b=a+1;b<pos.length;b++){
+        let dx = pos[b][0]-pos[a][0], dy = pos[b][1]-pos[a][1];
+        let dist = Math.hypot(dx,dy);
+        if(dist < MIN){
+          if(dist < 0.01){ dx = 1; dy = 0; dist = 1; }
+          const push = (MIN-dist)/2 + 0.05;
+          const ux = dx/dist, uy = dy/dist;
+          pos[a][0] -= ux*push; pos[a][1] -= uy*push;
+          pos[b][0] += ux*push; pos[b][1] += uy*push;
+          moved = true;
+        }
+      }
+    }
+    if(!moved) break;
+  }
+})();
+
+counties.forEach((c,i)=>{
+  const [x,y] = pos[i];
+  c._x = x; c._y = y;
+  const dot = document.createElementNS(NS,"path");
+  dot.setAttribute("d", markerPath(tierMeta[c.tier].shape, x, y));
+  dot.style.fill = tierMeta[c.tier].color;
+  dot.setAttribute("class","county-dot t-" + c.tier);
+  dot.setAttribute("tabindex","0");
+  dot.setAttribute("role","button");
+  dot.setAttribute("aria-label", c.n + " County, " + tierMeta[c.tier].label);
+  dot.dataset.idx = i;
+  dot.addEventListener("click", ()=>selectCounty(i));
+  dot.addEventListener("mouseenter", ()=>showTip(i, dot));
+  dot.addEventListener("mouseleave", scheduleHide);
+  dot.addEventListener("focus", ()=>showTip(i, dot));
+  dot.addEventListener("blur", scheduleHide);
+  dot.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); selectCounty(i);} });
+  dotsGroup.appendChild(dot);
+});
+
+const tip = document.getElementById('tip');
+let hideTimer = null;
+const DEFAULT_NOTE = "Uses Florida's standard vote-by-mail status lookup on the county's Supervisor of Elections site.";
+function domainOf(u){ return u.replace(/^https?:\/\//,'').replace(/^www\./,'').split('/')[0]; }
+function tipHtml(c){
+  const meta = tierMeta[c.tier];
+  const note = c.note || DEFAULT_NOTE;
+  const track = c.link
+    ? `<a href="${c.link}" target="_blank" rel="noopener"><span class="tip-label">Track your ballot</span>${domainOf(c.link)} <span aria-hidden="true">&#8599;</span></a>`
+    : `<span class="tip-none">This county does not have online ballot tracking.</span>`;
+  const official = c.officialLink
+    ? `<a href="${c.officialLink}" target="_blank" rel="noopener"><span class="tip-label">County elections site</span>${domainOf(c.officialLink)} <span aria-hidden="true">&#8599;</span></a>`
+    : "";
+  return `<strong>${c.n} County</strong><span class="tip-seat">County seat: ${c.seat}</span><span class="tier-chip tier-${c.tier}">${meta.label}</span><p class="tip-note">${note}</p>${track}${official}<span class="tip-hint">Click the marker for the full panel</span>`;
+}
+function showTip(i, dot){
+  clearTimeout(hideTimer);
+  const c = counties[i];
+  tip.innerHTML = tipHtml(c);
+  tip.style.display = "block";
+  const card = tip.parentElement.getBoundingClientRect();
+  const r = dot.getBoundingClientRect();
+  let left = r.left - card.left + r.width/2 - tip.offsetWidth/2;
+  left = Math.max(8, Math.min(left, card.width - tip.offsetWidth - 8));
+  let top = r.top - card.top - tip.offsetHeight - 4;
+  if(top < 8) top = r.bottom - card.top + 4;
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+}
+function scheduleHide(){
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(()=>{ tip.style.display = "none"; }, 250);
+}
+tip.addEventListener("mouseenter", ()=>clearTimeout(hideTimer));
+tip.addEventListener("mouseleave", scheduleHide);
+
+function renderPanel(c){
+  const panel = document.getElementById('panel');
+  const meta = tierMeta[c.tier];
+  const trackLabel = c.tier === "enhanced" ? "Track your ballot (BallotTrax)" : "Track your ballot";
+  const trackHtml = c.link
+    ? `<a href="${c.link}" target="_blank" rel="noopener">${c.link.replace('https://','')}</a>`
+    : `This county does not have online ballot tracking.`;
+  const officialRow = c.officialLink
+    ? `<dt>County elections site</dt><dd><a href="${c.officialLink}" target="_blank" rel="noopener">${c.officialLink.replace('https://','')}</a></dd>`
+    : "";
+  panel.innerHTML = `
+    <p class="eyebrow">${c.seat.toUpperCase()}, COUNTY SEAT</p>
+    <h2>${c.n} County</h2>
+    <span class="tier-chip tier-${c.tier}">${meta.label}</span>
+    <dl>
+      <dt>How ballots are tracked</dt>
+      <dd>${c.note ? c.note : "Confirmed to offer Florida's standard vote-by-mail status lookup through the Supervisor of Elections website. No enhanced (BallotTrax-style) alert service turned up in this research &mdash; check the county site directly, as this may have changed."}</dd>
+      <dt>${trackLabel}</dt>
+      <dd>${trackHtml}</dd>
+      ${officialRow}
+    </dl>
+  `;
+}
+
+function selectCounty(i){
+  const c = counties[i];
+  selected = i;
+  document.querySelectorAll('.county-dot').forEach(d=>d.classList.remove('selected'));
+  dotsGroup.children[i].classList.add('selected');
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('row-selected'));
+  const row = document.querySelector(`tr[data-idx="${i}"]`);
+  if(row){ row.classList.add('row-selected'); row.scrollIntoView({block:"nearest", behavior:"smooth"}); }
+  renderPanel(c);
+}
+
+// table
+const tbody = document.getElementById('tableBody');
+counties.slice().sort((a,b)=>a.n.localeCompare(b.n)).forEach(c=>{
+  const i = counties.indexOf(c);
+  const tr = document.createElement('tr');
+  tr.dataset.idx = i;
+  tr.tabIndex = 0;
+  const methodCell = c.link
+    ? `<a class="method-link" href="${c.link}" target="_blank" rel="noopener"><span class="dot ${tierMeta[c.tier].cls}" style="background:${tierMeta[c.tier].color}"></span>${tierMeta[c.tier].label} <span aria-hidden="true">&#8599;</span></a>`
+    : `<span class="method-link"><span class="dot" style="background:var(--slate-dim)"></span>No online ballot tracking</span>`;
+  tr.innerHTML = `<td>${c.n}</td><td>${methodCell}</td>`;
+  tr.addEventListener("click",(e)=>{ if(!e.target.closest('a')) selectCounty(i); });
+  tr.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ selectCounty(i);} });
+  tbody.appendChild(tr);
+});
+
+// search / filter
+const searchBox = document.getElementById('searchBox');
+searchBox.addEventListener('input', ()=>{
+  const q = searchBox.value.trim().toLowerCase();
+  counties.forEach((c,i)=>{
+    const match = !q || c.n.toLowerCase().includes(q) || c.seat.toLowerCase().includes(q);
+    dotsGroup.children[i].classList.toggle('dimmed', !match);
+  });
+  document.querySelectorAll('tbody tr').forEach(row=>{
+    const c = counties[row.dataset.idx];
+    const match = !q || c.n.toLowerCase().includes(q) || c.seat.toLowerCase().includes(q);
+    row.style.display = match ? "" : "none";
+  });
+});
+</script>
+</body>
+</html>
